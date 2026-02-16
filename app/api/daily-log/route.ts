@@ -31,6 +31,9 @@ const dailyLogSchema = z.object({
     otherIncome: z.number().default(0),
     expenseAmount: z.number().default(0),
     tradingNotes: z.string().optional(),
+
+    // Custom Protocols (Side Quests)
+    habitLogs: z.record(z.string(), z.boolean()).optional(),
 });
 
 export async function POST(request: Request) {
@@ -72,6 +75,7 @@ export async function POST(request: Request) {
             otherIncome: data.otherIncome.toString(),
             expenseAmount: data.expenseAmount.toString(),
             tradingNotes: data.tradingNotes,
+            habitLogs: data.habitLogs || {},
         }).returning();
 
         // 3. AI Trigger Logic (Async - Fire and Forget)

@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, date, boolean, numeric, timestamp, check, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, integer, date, boolean, numeric, timestamp, jsonb, uniqueIndex } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 // 1. NEXUS USER CONFIG
@@ -12,6 +12,7 @@ export const nexusUserConfig = pgTable('nexus_user_config', {
     dailyTilawahTarget: integer('daily_tilawah_target_default').default(20),
     zakatTargetAmount: numeric('zakat_target_amount', { precision: 15, scale: 2 }).default('0.00'),
     tradingRiskLimitPercent: numeric('trading_risk_limit_percent', { precision: 5, scale: 2 }).default('2.00'),
+    customHabits: jsonb('custom_habits').$type<string[]>().default([]),
     isActive: boolean('is_active').default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 }, (table) => {
@@ -49,6 +50,7 @@ export const dailyMetrics = pgTable('daily_metrics', {
     otherIncome: numeric('other_income', { precision: 15, scale: 2 }).default('0.00'),
     expenseAmount: numeric('expense_amount', { precision: 15, scale: 2 }).default('0.00'),
     tradingNotes: text('trading_notes'),
+    habitLogs: jsonb('habit_logs').$type<Record<string, boolean>>().default({}),
 
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   BookOpen, TrendingDown, TrendingUp, ShieldAlert, Flame,
-  Terminal, Activity, Zap, X, Loader2
+  Terminal, Activity, Zap, X, Loader2, Plus, CheckSquare
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -341,6 +341,12 @@ function DailyInputFormCosmic({ onSuccess }: { onSuccess: () => void }) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
+  // Side Quests state
+  const [customHabits, setCustomHabits] = useState<string[]>([]);
+  const [habitLogs, setHabitLogs] = useState<Record<string, boolean>>({});
+  const [newHabit, setNewHabit] = useState('');
+  const [isManageMode, setIsManageMode] = useState(false);
+
   const [form, setForm] = useState({
     logDate: new Date().toISOString().split('T')[0],
     sholatFardhu: 0,
@@ -362,6 +368,14 @@ function DailyInputFormCosmic({ onSuccess }: { onSuccess: () => void }) {
     tradingNotes: '',
   });
 
+  // Fetch habits on mount
+  useEffect(() => {
+    fetch('/api/config')
+      .then(res => res.json())
+      .then(data => setCustomHabits(data.customHabits || []))
+      .catch(() => { });
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -371,7 +385,7 @@ function DailyInputFormCosmic({ onSuccess }: { onSuccess: () => void }) {
       const res = await fetch('/api/daily-log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, habitLogs }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -390,6 +404,33 @@ function DailyInputFormCosmic({ onSuccess }: { onSuccess: () => void }) {
   };
 
   const u = (field: string, value: any) => setForm(prev => ({ ...prev, [field]: value }));
+
+  const handleAddHabit = async () => {
+    if (!newHabit.trim()) return;
+    const res = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'add', habit: newHabit.trim() }),
+    });
+    if (res.ok) {
+      setCustomHabits(prev => [...prev, newHabit.trim()]);
+      setNewHabit('');
+    }
+  };
+
+  const handleRemoveHabit = async (habit: string) => {
+    const res = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'remove', habit }),
+    });
+    if (res.ok) {
+      setCustomHabits(prev => prev.filter(h => h !== habit));
+      const newLogs = { ...habitLogs };
+      delete newLogs[habit];
+      setHabitLogs(newLogs);
+    }
+  };
 
   return (
     <div className="glass-card rounded-3xl overflow-hidden">
@@ -473,6 +514,74 @@ function DailyInputFormCosmic({ onSuccess }: { onSuccess: () => void }) {
           <div>
             <label className="text-xs text-gray-500 mb-1 block">Trading Notes</label>
             <textarea placeholder="Setup, entry, exit reasoning..." value={form.tradingNotes} onChange={e => u('tradingNotes', e.target.value)} className="input-cosmic w-full min-h-[70px] resize-y" />
+          </div>
+        </div>
+
+        {/* Side Quests */}
+        <div>
+          <div className="flex justify-between items-center mb-4">
+            <p className="form-section-title mb-0 pb-0 border-none flex items-center gap-2">
+              <CheckSquare className="w-4 h-4 text-cyan-400" /> Side Quests
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsManageMode(!isManageMode)}
+              className="text-xs text-gray-500 hover:text-white transition-colors underline"
+            >
+              {isManageMode ? 'Selesai Edit' : '+ Atur Goal'}
+            </button>
+          </div>
+
+          {/* Manage Mode */}
+          {isManageMode && (
+            <div className="glass-card rounded-xl p-4 space-y-3 mb-4">
+              <div className="flex gap-2">
+                <input
+                  value={newHabit}
+                  onChange={e => setNewHabit(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddHabit())}
+                  placeholder="Nama Goal (e.g., Sedekah Subuh)"
+                  className="input-cosmic flex-1"
+                />
+                <button type="button" onClick={handleAddHabit} className="btn-neon px-4 py-2 rounded-xl">
+                  <Plus className="w-5 h-5" />
+                </button>
+              </div>
+              {customHabits.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {customHabits.map(h => (
+                    <span key={h} className="text-xs bg-white/5 px-3 py-1.5 rounded-lg flex items-center gap-2 border border-white/10">
+                      {h}
+                      <X className="w-3 h-3 cursor-pointer text-red-400 hover:text-red-300" onClick={() => handleRemoveHabit(h)} />
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Checklist */}
+          <div className="grid grid-cols-2 gap-3">
+            {customHabits.length === 0 && !isManageMode && (
+              <p className="text-xs text-gray-600 italic col-span-2">Belum ada side quest. Klik &quot;+ Atur Goal&quot; buat nambahin.</p>
+            )}
+            {customHabits.map(habit => (
+              <label
+                key={habit}
+                className={`toggle-cosmic cursor-pointer transition-all ${habitLogs[habit] ? 'bg-cyan-500/15 border-cyan-500/50 text-cyan-400' : ''
+                  }`}
+              >
+                <input
+                  type="checkbox"
+                  className="accent-cyan-400"
+                  checked={!!habitLogs[habit]}
+                  onChange={e => setHabitLogs(prev => ({ ...prev, [habit]: e.target.checked }))}
+                />
+                <span className={`text-sm ${habitLogs[habit] ? 'font-bold text-white' : 'text-gray-400'}`}>
+                  {habit}
+                </span>
+              </label>
+            ))}
           </div>
         </div>
 
